@@ -25,7 +25,7 @@ function next(){
     const bonus=s.type==="full"?state.settings.bonusFull:state.settings.bonusMini;s.notes+=bonus;s.done=true;
     renderLab();Sound.fanfare();FX.confetti();
     setTimeout(()=>award(bonus,s.type==="full"?"Повна місія":"Міні-місія",$(".result")),500);
-    renderDay();syncSheet();return}
+    renderDay();pushProgress();return}
   s.task=newTask(s.plan[s.i]);s.answered=false;s.t0=Date.now();renderLab();const inp=$("#numIn");if(inp)inp.focus()}
 
 function skillCard(k){const s=state.skills[k],a=acc20(s);return `<div class="skill" style="--c:${SK[k].c}"><span class="tag" style="--c:${SK[k].c}">${SK[k].name}</span>

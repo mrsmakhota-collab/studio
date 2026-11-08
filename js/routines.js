@@ -27,8 +27,8 @@ function homeworkTap(btn){
       sh.querySelector("#hwNone").onclick=()=>{x.hw=2;closeModal();addEvent("hw",{why:"Без домашки"});save();renderDay()}})})}
 
 function taskDone(id,btn){
-  const t=state.tasks.find(q=>q.id===id);if(!t||t.doneAt)return;
-  askPin("Завдання виконано?",esc(t.title),()=>{t.doneAt=Date.now();award(t.notes,t.title,btn);Sound.fanfare();save();renderDay()})}
+  const t=state.tasks.find(q=>q.id===id);if(!t||state.taskDone[id])return;
+  askPin("Завдання виконано?",esc(t.title),()=>{state.taskDone[id]=Date.now();award(t.notes,t.title,btn);Sound.fanfare();save();renderDay()})}
 
 function routineItem(r,x){
   const done=!!x.r[r.id];
@@ -54,7 +54,7 @@ function renderDay(){
       <div class="items">${items.map(r=>routineItem(r,x)).join("")}
       ${hwHere?`<button class="item adult${x.hw?" done":""}" id="hwBtn"><span class="box">${x.hw?icon("check",18):""}</span>${icon("pencil",26)}<span class="t">${x.hw===2?"Сьогодні без домашки":"Домашнє завдання"}<br><span class="small" style="font-weight:600;text-decoration:none">${x.hw?"підтверджено":"підтверджує дорослий"}</span></span><span class="n">+${s.hwNotes}</span></button>`:""}
       </div></div>`}
-  const open=state.tasks.filter(q=>!q.doneAt);
+  const open=state.tasks.filter(q=>!state.taskDone[q.id]);
   if(open.length)h+=`<div class="card"><div class="slothead">${icon("star")}<h2>Додаткові завдання</h2></div><div class="items">
     ${open.map(q=>`<button class="item adult" data-task="${q.id}"><span class="box"></span>${icon(q.icon||"star",26)}<span class="t">${esc(q.title)}<br><span class="small" style="font-weight:600">підтверджує дорослий</span></span><span class="n">+${q.notes}</span></button>`).join("")}</div></div>`;
   h+=`<button class="big alt" id="toLab">Лабораторія: міні-місія на 5 хвилин</button>`;

@@ -8,7 +8,8 @@ const getNum=(id,min,max)=>clamp(Math.round(+($("#"+id).value)||0),min,max);
 
 function renderParent(){
   const v=$("#view-parent");if(!v)return;
-  if(!state.settings.pin)return renderPinSetup(v,false);
+  const P=isParentDevice();if(P)parentOpen=true;
+  if(!P&&!state.settings.pin)return renderPinSetup(v,false);
   if(!parentOpen){
     v.innerHTML=`<div><h2>Панель для батьків</h2><p class="small" style="margin-top:4px">Налаштування, рутини, винагороди і прогрес. Відкривається PIN-кодом.</p></div>
       <button class="big" id="pUnlock">${icon("lock",18)} Відкрити панель</button>`;
@@ -18,7 +19,11 @@ function renderParent(){
   const earned7=state.events.filter(e=>e.d>=from7&&e.type==="earn").reduce((a,e)=>a+e.n,0);
   const min7=state.events.filter(e=>e.d>=from7&&e.type==="spend").reduce((a,e)=>a+(e.min||0),0);
   const rDone=state.routines.filter(r=>x.r[r.id]).length;
-  let h=`<div class="row between"><h2>Панель для батьків</h2><button class="ghost" id="pLock">${icon("lock",16)} Закрити</button></div>`;
+  const ago=ts=>ts?new Date(ts).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"ще не було";
+  let h=P?`<div class="row between"><h2>Пульт батьків${state.name?": "+esc(state.name):""}</h2><button class="ghost" id="pRefresh">Оновити</button></div>
+    <p class="small">Дані з телефона дитини від ${ago(state.cloud.childAt)}. ${state.cloud.err?`<b style="color:var(--bad)">${esc(state.cloud.err)}</b>`:""}${state.pendingBonus?` Бонус +${state.pendingBonus} ще в дорозі на телефон дитини.`:""}</p>`
+    :`<div class="row between"><h2>Панель для батьків</h2><button class="ghost" id="pLock">${icon("lock",16)} Закрити</button></div>`;
+  const hwToday=s.hwDays.includes(weekday(t));
 
   h+=sec("overview","Огляд",`<div class="kpi">
     <div><b>${weekActive()}/${s.weekGoal}</b><span>активних днів цього тижня</span></div>
@@ -29,7 +34,8 @@ function renderParent(){
     <div><b>${fmt(earned7)}</b><span>нот зароблено за 7 днів</span></div>
     <div><b>${min7} хв</b><span>бонусного часу за 7 днів</span></div>
     <div><b>${streak()}</b><span>днів поспіль з місією</span></div></div>
-    <div class="week">${wk.map((d,i)=>`<div><i class="${isActive(d)?"on":""}${d===t?" today":""}">${isActive(d)?icon("check",16):""}</i>${DAYNAMES[i]}</div>`).join("")}</div>`);
+    <div class="week">${wk.map((d,i)=>`<div><i class="${isActive(d)?"on":""}${d===t?" today":""}">${isActive(d)?icon("check",16):""}</i>${DAYNAMES[i]}</div>`).join("")}</div>
+    ${P&&hwToday&&x.hw===0?`<div class="row"><button class="ghost" id="hwOk">Підтвердити домашку (+${s.hwNotes})</button><button class="ghost" id="hwNo">Сьогодні без домашки</button></div>`:""}`);
 
   h+=sec("screen","Екранний час і ноти",`<div class="grid2">
     ${numField("sBase","Базовий час, хв",s.baseMin,0,600)}${numField("sCap","Стеля на день (база + бонус), хв",s.capMin,0,720)}
@@ -47,7 +53,7 @@ function renderParent(){
       <button class="ghost" data-add="${sl}">${icon("plus",16)} Додати пункт</button></div>`).join("")}
     <p class="note">Нот за повністю виконану частину дня (бонус): ${s.slotBonus}.</p>`);
 
-  const open=state.tasks.filter(q=>!q.doneAt),done=state.tasks.filter(q=>q.doneAt).slice(-5).reverse();
+  const open=state.tasks.filter(q=>!state.taskDone[q.id]),done=state.tasks.filter(q=>state.taskDone[q.id]).slice(-5).reverse();
   h+=sec("tasks","Разові завдання",`<p class="small">Наприклад, "прибрати в кімнаті". З'являються у вкладці "Мій день", виконання підтверджуєте PIN-кодом.</p>
     <input id="tTitle" placeholder="Назва завдання" maxlength="60" aria-label="Назва завдання">
     <div class="grid2"><label class="field">Іконка${iconSelect("star",'id="tIcon" style="width:100%"')}</label><label class="field">Нот<input id="tNotes" type="number" value="20" min="1" max="500"></label></div>
@@ -80,58 +86,59 @@ function renderParent(){
     <button class="ghost" id="gSave">Зберегти</button>
     <div class="card"><h3>Змінити PIN</h3><div class="grid2"><input id="np1" type="password" inputmode="numeric" placeholder="Новий PIN" maxlength="8" aria-label="Новий PIN"><input id="np2" type="password" inputmode="numeric" placeholder="Ще раз" maxlength="8" aria-label="Повторіть PIN"></div><button class="ghost" id="npGo">Змінити</button><p class="small" id="npMsg"></p></div>
     <div class="card"><h3>Резервна копія</h3><p class="small">Прогрес живе в цьому браузері. Раз на тиждень зберігайте файл копії.</p>
-      <div class="row"><button class="ghost" id="bkExport">Зберегти копію у файл</button><label class="ghost" for="bkImport" style="border-radius:12px;cursor:pointer;display:inline-flex;align-items:center">Відновити з файлу</label><input type="file" id="bkImport" accept=".json,application/json" hidden></div><p class="small" id="bkMsg"></p></div>
-    <div class="card"><h3>Google Таблиця</h3><p class="small">Після кожної місії відповіді надсилаються в таблицю з дашбордом. Вставте адресу Apps Script (див. README).</p>
-      <div class="ans"><input id="hookUrl" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:.85rem" value="${esc(state.hook||"")}"><button id="hookSave">Зберегти</button></div>
-      <div class="row"><button class="ghost" id="hookSend">Надіслати зараз</button><span class="small" id="hookMsg">${state.hook?(state.lastSync?"Остання відправка: "+new Date(state.lastSync).toLocaleString("uk-UA"):"Ще не надсилалось")+". Очікують: "+state.log.filter(q=>!q.u).length:"Не налаштовано"}</span></div></div>
-    <div id="resetBox"><button class="ghost" id="resetAsk">Скинути весь прогрес</button></div>`);
+      <div class="row"><button class="ghost" id="bkExport">Зберегти копію у файл</button>${P?"":`<label class="ghost" for="bkImport" style="border-radius:12px;cursor:pointer;display:inline-flex;align-items:center">Відновити з файлу</label>`}<input type="file" id="bkImport" accept=".json,application/json" hidden></div><p class="small" id="bkMsg"></p></div>
+    ${syncCard(P)}
+    ${P?"":`<div id="resetBox"><button class="ghost" id="resetAsk">Скинути весь прогрес</button></div>`}`);
   v.innerHTML=h;bindParent(v)}
 
 function bindParent(v){
-  const s=state.settings;
+  const s=state.settings,P=isParentDevice();
   v.querySelectorAll("details.sec").forEach(d=>d.addEventListener("toggle",()=>{d.open?openSecs.add(d.dataset.sec):openSecs.delete(d.dataset.sec)}));
-  $("#pLock").onclick=()=>{parentOpen=false;renderParent()};
+  if($("#pLock"))$("#pLock").onclick=()=>{parentOpen=false;renderParent()};
+  if($("#pRefresh"))$("#pRefresh").onclick=()=>{FX.toast("Оновлюю...");refreshParent(true)};
+  if($("#hwOk"))$("#hwOk").onclick=()=>{dayData().hw=1;cloudHw(1);renderParent()};
+  if($("#hwNo"))$("#hwNo").onclick=()=>{dayData().hw=2;cloudHw(2);renderParent()};
   $("#sSave").onclick=()=>{
     s.baseMin=getNum("sBase",0,600);s.capMin=Math.max(s.baseMin,getNum("sCap",0,720));s.price10=getNum("sPrice",1,500);s.hwNotes=getNum("sHwN",0,200);
     s.weekGoal=getNum("sWG",1,7);s.weekBonus=getNum("sWB",0,500);s.hwGate=$("#sGate").checked;
     s.hwDays=$$("[data-hwd]").filter(c=>c.checked).map(c=>+c.dataset.hwd);
-    save();renderAll();openSecs.add("screen");renderParent();$("#sMsg").textContent="Збережено."};
+    configChanged();renderAll();openSecs.add("screen");renderParent();$("#sMsg").textContent="Збережено."};
   // рутини
   v.querySelectorAll(".redit[data-rid]").forEach(row=>{
     const r=state.routines.find(q=>q.id===row.dataset.rid);if(!r)return;
-    row.querySelectorAll("[data-f]").forEach(f=>f.onchange=()=>{const k=f.dataset.f;r[k]=k==="notes"?clamp(Math.round(+f.value||0),0,100):k==="title"?(f.value.trim()||r.title):f.value;save();renderDay()});
+    row.querySelectorAll("[data-f]").forEach(f=>f.onchange=()=>{const k=f.dataset.f;r[k]=k==="notes"?clamp(Math.round(+f.value||0),0,100):k==="title"?(f.value.trim()||r.title):f.value;configChanged();renderDay()});
     row.querySelectorAll("[data-act]").forEach(bn=>bn.onclick=()=>{
       const a=bn.dataset.act,arr=state.routines;
       if(a==="del"){state.routines=arr.filter(q=>q!==r)}
       else{const same=arr.filter(q=>q.slot===r.slot),i=same.indexOf(r),j=a==="up"?i-1:i+1;if(j<0||j>=same.length)return;
         const ia=arr.indexOf(same[i]),ib=arr.indexOf(same[j]);[arr[ia],arr[ib]]=[arr[ib],arr[ia]]}
-      save();renderDay();renderParent()})});
-  v.querySelectorAll("[data-add]").forEach(bn=>bn.onclick=()=>{state.routines.push({id:"r"+uid(),slot:bn.dataset.add,title:"Нова справа",icon:"star",notes:3});save();renderDay();renderParent();
+      configChanged();renderDay();renderParent()})});
+  v.querySelectorAll("[data-add]").forEach(bn=>bn.onclick=()=>{state.routines.push({id:"r"+uid(),slot:bn.dataset.add,title:"Нова справа",icon:"star",notes:3});configChanged();renderDay();renderParent();
     const rows=$$(`.redit[data-rid] input[data-f="title"]`);const last=rows[rows.length-1];if(last){last.focus();last.select()}});
   // разові завдання
   $("#tAdd").onclick=()=>{const title=$("#tTitle").value.trim();if(!title)return $("#tTitle").focus();
-    state.tasks.push({id:uid(),title,notes:getNum("tNotes",1,500),icon:$("#tIcon").value,created:Date.now(),doneAt:0});save();renderDay();renderParent();FX.toast("Завдання додано")};
-  v.querySelectorAll("[data-tdel]").forEach(bn=>bn.onclick=()=>{state.tasks=state.tasks.filter(q=>q.id!==bn.dataset.tdel);save();renderDay();renderParent()});
+    state.tasks.push({id:uid(),title,notes:getNum("tNotes",1,500),icon:$("#tIcon").value,created:Date.now()});configChanged();renderDay();renderParent();FX.toast("Завдання додано")};
+  v.querySelectorAll("[data-tdel]").forEach(bn=>bn.onclick=()=>{state.tasks=state.tasks.filter(q=>q.id!==bn.dataset.tdel);configChanged();renderDay();renderParent()});
   // скарбничка
   $("#pgSave").onclick=()=>{const p=state.piggy;p.title=$("#pgT").value.trim()||p.title;p.min=getNum("pgM",10,600);p.cost=getNum("pgC",10,5000);p.weekendOnly=$("#pgW").checked;
-    if(p.saved>p.cost){state.wallet+=p.saved-p.cost;p.saved=p.cost}save();renderAll();FX.toast("Скарбничку збережено")};
+    if(!P&&p.saved>p.cost){state.wallet+=p.saved-p.cost;p.saved=p.cost}configChanged();renderAll();FX.toast("Скарбничку збережено")};
   // бонус вручну
-  $("#mGo").onclick=e=>{const n=getNum("mN",1,500),why=$("#mWhy").value.trim()||"Бонус від батьків";award(n,why,e.currentTarget,{manual:1});renderAll();FX.toast(`Нараховано +${n} ${notesWord(n)}`)};
+  $("#mGo").onclick=e=>{const n=getNum("mN",1,500),why=$("#mWhy").value.trim()||"Бонус від батьків";if(P)return cloudBonus(n,why);award(n,why,e.currentTarget,{manual:1});renderAll();FX.toast(`Нараховано +${n} ${notesWord(n)}`)};
   // рівні
-  v.querySelectorAll("button[data-k]").forEach(bn=>bn.onclick=()=>{const q=state.skills[bn.dataset.k];q.level=clamp(q.level+ +bn.dataset.d,1,10);q.since=0;save();renderParent();renderLab()});
+  v.querySelectorAll("button[data-k]").forEach(bn=>bn.onclick=()=>{const q=state.skills[bn.dataset.k];q.level=clamp(q.level+ +bn.dataset.d,1,10);q.since=0;if(P){cloudLevel(bn.dataset.k,q.level);saveLocalOnly()}else save();renderParent();renderLab()});
   // загальне
-  $("#gSave").onclick=()=>{s.appName=$("#gName").value.trim()||"Штаб винахідника";s.sound=$("#gSound").checked;save();renderAll();FX.toast("Збережено")};
+  $("#gSave").onclick=()=>{s.appName=$("#gName").value.trim()||"Штаб винахідника";s.sound=$("#gSound").checked;configChanged();renderAll();FX.toast("Збережено")};
   $("#npGo").onclick=()=>{const a=$("#np1").value.trim(),b=$("#np2").value.trim();
     if(!/^\d{4,8}$/.test(a))return $("#npMsg").textContent="PIN - від 4 до 8 цифр.";
     if(a!==b)return $("#npMsg").textContent="PIN-коди не збігаються.";
-    s.pin=pinHash(a);save();$("#np1").value=$("#np2").value="";$("#npMsg").textContent="PIN змінено."};
+    s.pin=pinHash(a);configChanged();$("#np1").value=$("#np2").value="";$("#npMsg").textContent="PIN змінено."};
   $("#bkExport").onclick=()=>{$("#bkMsg").textContent=exportBackup()==="ok"?"Файл копії збережено.":"Не вдалось зберегти файл."};
-  $("#bkImport").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{let d=null;try{d=JSON.parse(rd.result)}catch(err){}
+  if($("#bkImport"))$("#bkImport").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{let d=null;try{d=JSON.parse(rd.result)}catch(err){}
     if(!d||!d.skills){$("#bkMsg").textContent="Це не файл копії застосунку.";return}
     $("#bkMsg").innerHTML=`Відновити копію від ${d.updatedAt?new Date(d.updatedAt).toLocaleDateString("uk-UA"):"невідомої дати"}? Поточний прогрес буде замінено. <button class="danger" id="bkYes">Відновити</button>`;
     $("#bkYes").onclick=()=>{const pin=state.settings.pin;state=normalize(d);if(!state.settings.pin)state.settings.pin=pin;session=null;save();renderAll();FX.toast("Прогрес відновлено")}};rd.readAsText(f)};
-  $("#hookSave").onclick=()=>{state.hook=$("#hookUrl").value.trim();save();$("#hookMsg").textContent=/^https:\/\/script\.google\.com\//.test(state.hook)?'Збережено. Натисніть "Надіслати зараз", щоб перевірити.':state.hook?"Адреса має починатися з https://script.google.com/":"Відправку вимкнено."};
-  $("#hookSend").onclick=async()=>{$("#hookMsg").textContent="Надсилаю...";const r=await syncSheet(true);$("#hookMsg").textContent=r==="ok"?"Надіслано. Перевірте аркуш Log.":r==="nohook"?"Спершу вставте і збережіть адресу.":"Немає зв'язку з таблицею. Спробую після наступної місії."};
+  bindSync(P);
+  if(!$("#resetAsk"))return;
   $("#resetAsk").onclick=()=>{$("#resetBox").innerHTML=`<div class="confirm"><b>Видалити весь прогрес, ноти й історію?</b><span class="small">Налаштування, рутини і PIN залишаться. Цю дію не можна скасувати.</span><div class="row"><button class="danger" id="resetYes">Так, скинути</button><button class="ghost" id="resetNo">Скасувати</button></div></div>`;
     $("#resetYes").onclick=()=>{const keep={name:state.name,settings:state.settings,routines:state.routines,piggy:Object.assign({},state.piggy,{saved:0}),hook:state.hook};state=Object.assign(fresh(),keep);session=null;save();renderAll();FX.toast("Прогрес скинуто")};
     $("#resetNo").onclick=renderParent}}
@@ -142,4 +149,21 @@ function renderPinSetup(v,change){
   $("#pinSet").onsubmit=e=>{e.preventDefault();const a=$("#ps1").value.trim(),b=$("#ps2").value.trim();
     if(!/^\d{4,8}$/.test(a))return $("#psErr").textContent="PIN - від 4 до 8 цифр.";
     if(a!==b)return $("#psErr").textContent="PIN-коди не збігаються.";
-    state.settings.pin=pinHash(a);save();parentOpen=true;renderAll();FX.toast("PIN збережено")}}
+    state.settings.pin=pinHash(a);configChanged();parentOpen=true;renderAll();FX.toast("PIN збережено")}}
+
+/* Картка синхронізації: на телефоні дитини - підключення таблиці, на пульті - статус. */
+function syncCard(P){
+  const c=state.cloud,ago=ts=>ts?new Date(ts).toLocaleString("uk-UA",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"ще не було";
+  if(P)return `<div class="card"><h3>Синхронізація</h3><p class="small">Цей пристрій - пульт батьків. Дані з телефона дитини: ${ago(c.childAt)}. Остання перевірка: ${ago(c.lastPull)}.</p>
+    <button class="ghost" id="syncOff">Відключити цей пульт</button></div>`;
+  return `<div class="card"><h3>Синхронізація з пультом батьків</h3>
+    <p class="small">Вставте адресу веб-застосунку Google Apps Script (закінчується на /exec). Прогрес піде в таблицю, а налаштування з пультів батьків прийдуть сюди.</p>
+    <div class="ans"><input id="hookUrl" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:.85rem" value="${esc(state.hook||"")}"><button id="hookSave">Підключити</button></div>
+    <p class="small" id="hookMsg">${cloudOk()?`Підключено. Надіслано: ${ago(c.lastPush)}. Перевірено: ${ago(c.lastPull)}.${c.err?" "+esc(c.err):""}`:"Не підключено."}</p>
+    ${cloudOk()?`<div class="row"><button class="ghost" id="hookSend">Надіслати зараз</button><button class="ghost" id="hookOff">Відключити</button></div>`:""}</div>`}
+function bindSync(P){
+  if(P){$("#syncOff").onclick=()=>{openModal(`<h2>Відключити пульт?</h2><p class="small">На цьому пристрої зітруться дані пульта. Прогрес дитини не зміниться.</p><button class="danger" id="offYes">Відключити</button><button class="ghost" data-close>Скасувати</button>`,sh=>{sh.querySelector("#offYes").onclick=()=>{try{localStorage.removeItem(STORE_KEY)}catch(e){}location.reload()}})};return}
+  const msg=t=>{const m=$("#hookMsg");if(m)m.textContent=t};
+  $("#hookSave").onclick=()=>connectChild($("#hookUrl").value,msg);
+  if($("#hookSend"))$("#hookSend").onclick=async()=>{msg("Надсилаю...");const r=await pushProgress();await pullConfig();msg(r==="ok"?"Надіслано і перевірено.":"Немає зв'язку з таблицею. Спробую пізніше.")};
+  if($("#hookOff"))$("#hookOff").onclick=()=>{state.hook="";save();renderParent()}}

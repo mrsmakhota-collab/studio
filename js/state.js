@@ -28,7 +28,11 @@ const defaultSettings=()=>({
 const fresh=()=>({v:2,name:"",xp:0,wallet:0,earnedTotal:0,
   skills:{m:{level:3,recent:[],since:0,total:0,correct:0},e:{level:2,recent:[],since:0,total:0,correct:0},k:{level:2,recent:[],since:0,total:0,correct:0}},
   days:{},sessions:{},missions:{},seen:[],projects:{},log:[],events:[],
-  routines:defaultRoutines(),tasks:[],daily:{},weekDone:{},
+  routines:defaultRoutines(),tasks:[],taskDone:{},daily:{},weekDone:{},
+  editAt:0,            // коли востаннє змінювали налаштування (рутини, ціни...) - для синхронізації
+  appliedBonus:[],levelAt:{},
+  device:"",           // "child" - телефон дитини, "parent" - пульт батьків (не синхронізується)
+  cloud:{lastPull:0,lastPush:0,childAt:0,err:""},
   piggy:{title:"Марафон вихідного",min:60,cost:80,saved:0,weekendOnly:true},
   settings:defaultSettings(),
   hook:"",lastSync:0,updatedAt:0});
@@ -48,11 +52,18 @@ function normalize(s){
   o.piggy=Object.assign(fresh().piggy,s.piggy||{});
   for(const k of["log","events","seen","tasks"])if(!Array.isArray(o[k]))o[k]=[];
   if(!Array.isArray(s.routines))o.routines=defaultRoutines();
-  for(const k of["days","sessions","missions","projects","daily","weekDone"])if(!o[k]||typeof o[k]!=="object")o[k]={};
+  for(const k of["days","sessions","missions","projects","daily","weekDone","taskDone","levelAt"])if(!o[k]||typeof o[k]!=="object")o[k]={};
+  if(!Array.isArray(o.appliedBonus))o.appliedBonus=[];
+  o.cloud=Object.assign({lastPull:0,lastPush:0,childAt:0,err:""},s.cloud||{});
+  for(const t of o.tasks)if(t.doneAt){o.taskDone[t.id]=t.doneAt;delete t.doneAt} // старий формат
   if(typeof o.wallet!=="number"||o.wallet<0)o.wallet=0;
   o.v=2;return o}
 
-function save(){state.updatedAt=Date.now();try{localStorage.setItem(STORE_KEY,JSON.stringify(state))}catch(e){}}
+function save(){state.updatedAt=Date.now();try{localStorage.setItem(STORE_KEY,JSON.stringify(state))}catch(e){}
+  if(typeof onSaved==="function")onSaved()}
+/* Змінено налаштування (рутини, завдання, ціни, скарбничка, PIN): позначити час і відправити в хмару. */
+function configChanged(){state.editAt=Date.now();save();if(typeof pushConfigSoon==="function")pushConfigSoon()}
+const isParentDevice=()=>state.device==="parent";
 
 /* Дані поточного дня: позначені рутини, бонус за слоти, домашка, витрачені бонусні хвилини. */
 function dayData(d=today()){
