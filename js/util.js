@@ -13,7 +13,7 @@ const weekDays=(s=today())=>{const mon=dayShift(s,1-weekday(s));return [0,1,2,3,
 const fmt=n=>Number(n).toLocaleString("uk-UA");
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
-const SK={m:{name:"Математика",c:"var(--math)"},e:{name:"Інженерія",c:"var(--eng)"},k:{name:"Критичне мислення",c:"var(--crit)"}};
+const SK={m:{name:"Математика",c:"var(--math)"},e:{name:"Планування",c:"var(--eng)"},k:{name:"Критичне мислення",c:"var(--crit)"}};
 const NAMES=["Оля","Марко","Софія","Дмитро","Ірина","Тарас","Ліна","Богдан"];
 const DAYNAMES=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
 /* Відмінювання: plural(5,["нота","ноти","нот"]) -> "нот" */

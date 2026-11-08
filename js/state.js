@@ -23,12 +23,14 @@ const defaultSettings=()=>({
   hwNotes:10,        // нот за підтверджену домашку
   weekGoal:5,        // активних днів на тиждень
   weekBonus:20,      // нот за досягнуту тижневу ціль
+  retellNotes:20,     // нот за переказ
   noteCorrect:3, noteWrong:1, bonusMini:3, bonusFull:6, slotBonus:5, projectNotes:50
 });
 const fresh=()=>({v:2,name:"",xp:0,wallet:0,earnedTotal:0,
   skills:{m:{level:3,recent:[],since:0,total:0,correct:0},e:{level:2,recent:[],since:0,total:0,correct:0},k:{level:2,recent:[],since:0,total:0,correct:0}},
   days:{},sessions:{},missions:{},seen:[],projects:{},log:[],events:[],
   routines:defaultRoutines(),tasks:[],taskDone:{},daily:{},weekDone:{},
+  retell:{level:1,streak:0},retells:[],reviewedRetell:[],
   editAt:0,            // коли востаннє змінювали налаштування (рутини, ціни...) - для синхронізації
   appliedBonus:[],levelAt:{},
   device:"",           // "child" - телефон дитини, "parent" - пульт батьків (не синхронізується)
@@ -54,6 +56,8 @@ function normalize(s){
   if(!Array.isArray(s.routines))o.routines=defaultRoutines();
   for(const k of["days","sessions","missions","projects","daily","weekDone","taskDone","levelAt"])if(!o[k]||typeof o[k]!=="object")o[k]={};
   if(!Array.isArray(o.appliedBonus))o.appliedBonus=[];
+  for(const k of["retells","reviewedRetell"])if(!Array.isArray(o[k]))o[k]=[];
+  o.retell=Object.assign({level:1,streak:0},s.retell||{});
   o.cloud=Object.assign({lastPull:0,lastPush:0,childAt:0,err:""},s.cloud||{});
   for(const t of o.tasks)if(t.doneAt){o.taskDone[t.id]=t.doneAt;delete t.doneAt} // старий формат
   if(typeof o.wallet!=="number"||o.wallet<0)o.wallet=0;
@@ -85,5 +89,5 @@ function streak(){let n=0,d=today();if(!state.sessions[d])d=dayShift(d,-1);while
 function acc20(s){return s.recent.length?Math.round(100*s.recent.reduce((a,b)=>a+b,0)/s.recent.length):null}
 
 /* Активний день: позначена хоча б одна рутина або пройдена місія. */
-function isActive(d){const x=state.daily[d];return !!(state.sessions[d]||(x&&x.r&&Object.keys(x.r).length)||(x&&x.hw===1))}
+function isActive(d){const x=state.daily[d];return !!(state.sessions[d]||(state.retells||[]).some(r=>r.d===d&&r.status==="done")||(x&&x.r&&Object.keys(x.r).length)||(x&&x.hw===1))}
 function weekActive(){return weekDays().filter(isActive).length}

@@ -44,7 +44,11 @@ function applyConfig(c){
   if(!c)return false;let ch=false;
   if((c.editAt||0)>(state.editAt||0)){applyStructural(state,c);state.editAt=c.editAt;ch=true}
   for(const b of c.bonuses||[])if(b&&b.id&&!state.appliedBonus.includes(b.id)){
-    state.appliedBonus.push(b.id);award(b.n,b.why||"Бонус від батьків");FX.toast(`Бонус від батьків: +${b.n} ${notesWord(b.n)}`);ch=true}
+    state.appliedBonus.push(b.id);ch=true;
+    if(b.retell){const e=state.retells.find(x=>x.id===b.retell.rid);
+      if(e&&e.status==="pending"){applyReview(e,{checks:b.retell.checks||[],fillers:b.retell.fillers||0});FX.toast(`Батьки оцінили переказ: +${b.n} ${notesWord(b.n)}`)}
+      continue}
+    award(b.n,b.why||"Бонус від батьків");FX.toast(`Бонус від батьків: +${b.n} ${notesWord(b.n)}`)}
   if(state.appliedBonus.length>600)state.appliedBonus=state.appliedBonus.slice(-600);
   for(const k of["m","e","k"]){const lv=(c.levels||{})[k];
     if(lv&&(lv.at||0)>(state.levelAt[k]||0)){state.skills[k].level=clamp(lv.level,1,10);state.skills[k].since=0;state.levelAt[k]=lv.at;ch=true}}
@@ -71,8 +75,8 @@ async function connectChild(url,msg){
     state=Object.assign(normalize(r.progress),keep);msg("Знайдено прогрес у таблиці - відновлено.")}
   if(r.config&&(r.config.editAt||0)>(state.editAt||0))applyConfig(r.config);
   else{if(!state.editAt)state.editAt=Date.now();pushConfigSoon()}
-  state.device="child";save();await pushProgress();renderAll();
-  msg("Підключено. Тепер прогрес видно на пульті батьків.")}
+  state.device="child";save();await pushProgress();applyDeviceMode();renderAll();
+  msg("Підключено. Прогрес видно на пульті батьків. Вкладку \"Батькам\" на цьому телефоні сховано: щоб відкрити її, натисніть 5 разів поспіль на назву застосунку вгорі.")}
 
 /* ---------- пульт батьків ---------- */
 function buildMirror(prog,cfg){
@@ -85,7 +89,8 @@ function buildMirror(prog,cfg){
   else if(cfg&&(cfg.editAt||0)>=(m.editAt||0)){applyStructural(m,cfg);m.editAt=cfg.editAt||0}
   if(cfg){for(const k of["m","e","k"]){const lv=(cfg.levels||{})[k];if(lv&&(lv.at||0)>(m.levelAt[k]||0))m.skills[k].level=lv.level}
     const h=(cfg.hwSet||{})[today()];if(h){const x=m.daily[today()]||(m.daily[today()]={});if((h.at||0)>(x.hwAt||0)){x.hw=h.v;x.hwAt=h.at}}
-    m.pendingBonus=(cfg.bonuses||[]).filter(b=>!m.appliedBonus.includes(b.id)).reduce((a,b)=>a+b.n,0)}
+    m.pendingBonus=(cfg.bonuses||[]).filter(b=>!m.appliedBonus.includes(b.id)).reduce((a,b)=>a+b.n,0);
+    m.reviewedRetell=(cfg.bonuses||[]).filter(b=>b.retell).map(b=>b.retell.rid)}
   state=m;saveLocalOnly()}
 async function refreshParent(force){
   if(!isParentDevice()||!cloudOk())return;

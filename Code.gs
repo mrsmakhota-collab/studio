@@ -11,7 +11,7 @@
  * 4) Вставити URL у застосунку (телефон дитини: "Батькам" -> "Синхронізація").
  * URL нікому, крім батьків, не пересилайте.
  */
-var SKILL = { m: 'Математика', e: 'Інженерія', k: 'Критичне мислення' };
+var SKILL = { m: 'Математика', e: 'Планування', k: 'Критичне мислення' };
 var LOG_HEADERS = ['ID', 'Дата', 'Час', 'Навичка', 'Тип задачі', 'Рівень', 'Правильно', 'Секунд', 'Дитина'];
 var CHUNK = 45000; // символів у клітинці (ліміт Google - 50 000)
 
@@ -146,7 +146,7 @@ function setup() {
   d.getRange('B7').setNumberFormat('0.0');
   d.getRange('A3:A7').setFontWeight('bold');
   d.getRange('D3:E3').setValues([['Навичка', 'Поточний рівень']]).setFontWeight('bold');
-  ['Математика', 'Інженерія', 'Критичне мислення'].forEach(function (s, i) {
+  ['Математика', 'Планування', 'Критичне мислення'].forEach(function (s, i) {
     var r = 4 + i;
     d.getRange(r, 4).setValue(s);
     d.getRange(r, 5).setFormula('=IFERROR(INDEX(SORT(FILTER({Log!C2:C,Log!F2:F},Log!D2:D=D' + r + '),1,FALSE),1,2),"")');

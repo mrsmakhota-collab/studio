@@ -71,12 +71,13 @@ function renderParent(){
     <div class="redit" style="grid-template-columns:80px 1fr">${`<input id="mN" type="number" value="10" min="1" max="500" aria-label="Нот">`}<input id="mWhy" placeholder="За що" maxlength="60"></div>
     <button class="ghost" id="mGo">${icon("plus",16)} Нарахувати</button>`);
 
+  h+=sec("retell","Переказ",retellParentSection(P));
   const tot=["m","e","k"].reduce((a,k)=>a+state.skills[k].total,0),ws=weakSpots(30).slice(0,8);
   h+=sec("skills","Задачі і рівні",`<p class="small">Рівень 1-10 змінюється автоматично: 4+ задачі з точністю від 85% - вгору, до 50% - вниз. Ціль - зона 70-85% правильних.</p>
     <div class="tablewrap"><table><thead><tr><th>Навичка</th><th class="num">Рівень</th><th class="num">Задач</th><th class="num">Точність</th><th class="num">Ост. 20</th></tr></thead><tbody>
     ${["m","e","k"].map(k=>{const q=state.skills[k],a=acc20(q);return `<tr><td><span class="tag" style="--c:${SK[k].c}">${SK[k].name}</span></td><td class="num">${q.level}</td><td class="num">${q.total}</td><td class="num">${q.total?Math.round(100*q.correct/q.total)+"%":"-"}</td><td class="num">${a===null?"-":a+"%"}</td></tr>`}).join("")}</tbody></table></div>
     <p class="small">Усього задач: <b class="mono">${tot}</b> · днів з місією: <b class="mono">${Object.keys(state.sessions).length}</b> · проєктів: <b class="mono">${Object.keys(state.projects).length}</b></p>
-    <div><h3>Задачі за 14 днів</h3><div class="legend" style="margin-top:6px"><span style="--c:var(--math)">Математика</span><span style="--c:var(--eng)">Інженерія</span><span style="--c:var(--crit)">Критичне мислення</span></div></div>
+    <div><h3>Задачі за 14 днів</h3><div class="legend" style="margin-top:6px"><span style="--c:var(--math)">Математика</span><span style="--c:var(--eng)">Планування</span><span style="--c:var(--crit)">Критичне мислення</span></div></div>
     <div class="viz">${chartSvg()}</div>
     <div><h3>Рівні вручну</h3><div class="items" style="margin-top:8px">${["m","e","k"].map(k=>`<div class="row"><span class="tag" style="--c:${SK[k].c};min-width:170px">${SK[k].name}</span><button class="ghost" data-k="${k}" data-d="-1" aria-label="Знизити">−</button><b class="mono">${state.skills[k].level}</b><button class="ghost" data-k="${k}" data-d="1" aria-label="Підвищити">+</button></div>`).join("")}</div></div>
     <div><h3>Слабкі місця за 30 днів</h3>${ws.length?`<div class="tablewrap"><table><thead><tr><th>Тип задачі</th><th class="num">Спроб</th><th class="num">Точність</th><th class="num">Сек</th></tr></thead><tbody>${ws.map(q=>`<tr><td><span class="tag" style="--c:${SK[q.s].c}">${esc(q.k)}</span></td><td class="num">${q.n}</td><td class="num">${Math.round(100*q.acc)}%</td><td class="num">${Math.round(q.avg)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="small">Даних ще мало: з'являться після 2-3 місій.</p>`}</div>`);
@@ -93,6 +94,7 @@ function renderParent(){
 
 function bindParent(v){
   const s=state.settings,P=isParentDevice();
+  bindRetellParent(v,P);
   v.querySelectorAll("details.sec").forEach(d=>d.addEventListener("toggle",()=>{d.open?openSecs.add(d.dataset.sec):openSecs.delete(d.dataset.sec)}));
   if($("#pLock"))$("#pLock").onclick=()=>{parentOpen=false;renderParent()};
   if($("#pRefresh"))$("#pRefresh").onclick=()=>{FX.toast("Оновлюю...");refreshParent(true)};
@@ -166,4 +168,4 @@ function bindSync(P){
   const msg=t=>{const m=$("#hookMsg");if(m)m.textContent=t};
   $("#hookSave").onclick=()=>connectChild($("#hookUrl").value,msg);
   if($("#hookSend"))$("#hookSend").onclick=async()=>{msg("Надсилаю...");const r=await pushProgress();await pullConfig();msg(r==="ok"?"Надіслано і перевірено.":"Немає зв'язку з таблицею. Спробую пізніше.")};
-  if($("#hookOff"))$("#hookOff").onclick=()=>{state.hook="";save();renderParent()}}
+  if($("#hookOff"))$("#hookOff").onclick=()=>{state.hook="";save();applyDeviceMode();renderParent()}}

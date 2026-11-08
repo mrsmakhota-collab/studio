@@ -2,6 +2,7 @@
 const TABS=[
   {id:"day",name:"День",icon:"sun"},
   {id:"lab",name:"Задачі",icon:"star"},
+  {id:"retell",name:"Переказ",icon:"book"},
   {id:"project",name:"Проєкт",icon:"bulb"},
   {id:"wallet",name:"Ноти",icon:"music"},
   {id:"parent",name:"Батькам",icon:"lock"}
@@ -20,18 +21,20 @@ function renderAll(){
   if(!state.device)return renderWelcome();
   renderHeader();
   if(isParentDevice()){renderParent();return}
-  renderDay();if(!session)renderLab();renderProject();renderWallet();renderParent()}
+  renderDay();if(!session)renderLab();if(!rt)renderRetell();renderProject();renderWallet();renderParent()}
 function show(id){
   if(isParentDevice())id="parent";
   if(currentTab==="parent"&&id!=="parent")parentOpen=false; // панель закривається, коли йдемо з вкладки
   currentTab=id;
   TABS.forEach(t=>{$("#tab-"+t.id).setAttribute("aria-selected",t.id===id);$("#view-"+t.id).hidden=t.id!==id});
-  ({day:renderDay,lab:renderLab,project:renderProject,wallet:renderWallet,parent:renderParent})[id]();
+  ({day:renderDay,lab:renderLab,retell:renderRetell,project:renderProject,wallet:renderWallet,parent:renderParent})[id]();
   window.scrollTo({top:0})}
 /* Пульт батьків бачить лише свою вкладку; телефон дитини - усі. */
 function applyDeviceMode(){
   const P=isParentDevice();
-  $("#tabs").hidden=P||!state.device;$("#soundBtn").hidden=P;$(".stats").hidden=!state.device;$("#welcome").hidden=!!state.device;
+  $("#tabs").hidden=P||!state.device;$("#soundBtn").hidden=P;$(".stats").hidden=!state.device;
+  // На телефоні дитини, підключеному до пульта, вкладка "Батькам" схована (вхід - 5 натискань на назву).
+  $("#tab-parent").hidden=state.device==="child"&&cloudOk();$("#welcome").hidden=!!state.device;
   TABS.forEach(t=>{if(!state.device)$("#view-"+t.id).hidden=true})}
 
 /* Перший запуск: хто користується цим пристроєм. */
@@ -56,6 +59,8 @@ function boot(){
   $("#kidName").addEventListener("change",e=>{if(isParentDevice())return;state.name=e.target.value.trim();save();renderDay()});
   $("#soundBtn").onclick=()=>{state.settings.sound=!state.settings.sound;save();renderHeader();Sound.tick()};
   $("#walletChip").onclick=()=>{if(!isParentDevice())show("wallet")};
+  let taps=0,tapT=0;$("#appName").onclick=()=>{if(state.device!=="child")return;const n=Date.now();taps=n-tapT<1500?taps+1:1;tapT=n;
+    if(taps>=5){taps=0;askPin("Панель для батьків","",()=>{parentOpen=true;show("parent")})}};
   const loaded=loadLocal();
   state=normalize(loaded);
   // хто вже мав прогрес (v1 або v2 до цієї версії) - це телефон дитини

@@ -57,9 +57,9 @@ function renderDay(){
   const open=state.tasks.filter(q=>!state.taskDone[q.id]);
   if(open.length)h+=`<div class="card"><div class="slothead">${icon("star")}<h2>Додаткові завдання</h2></div><div class="items">
     ${open.map(q=>`<button class="item adult" data-task="${q.id}"><span class="box"></span>${icon(q.icon||"star",26)}<span class="t">${esc(q.title)}<br><span class="small" style="font-weight:600">підтверджує дорослий</span></span><span class="n">+${q.notes}</span></button>`).join("")}</div></div>`;
-  h+=`<button class="big alt" id="toLab">Лабораторія: міні-місія на 5 хвилин</button>`;
+  h+=`<div class="twocol"><button class="big alt" id="toLab">Міні-місія: 3 задачі</button><button class="big alt" id="toRetell">Переказ тексту</button></div>`;
   v.innerHTML=h;
   v.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>toggleRoutine(b.dataset.r,b));
   v.querySelectorAll("[data-task]").forEach(b=>b.onclick=()=>taskDone(b.dataset.task,b));
   const hw=$("#hwBtn");if(hw)hw.onclick=()=>homeworkTap(hw);
-  $("#toLab").onclick=()=>show("lab")}
+  $("#toLab").onclick=()=>show("lab");$("#toRetell").onclick=()=>show("retell")}
